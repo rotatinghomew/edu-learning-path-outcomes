@@ -1,14 +1,59 @@
 # 并行选修与中断学习中的进阶路径证据应用
 
-这是一个面向社区老年教育运营的本地分析原型，使用合成记录演示从业务记录到运营摘要的处理。项目把记录读取、统计口径和运营判断分开，便于核对原始事实与派生结果。
+这是一个面向社区老年教育运营的本地分析原型，使用合成记录演示从学员级学习履历到
+进阶课程推荐证据的完整处理。项目把记录读取、风险集合界定、生存/竞争风险估计、
+路径证据适用性与点-in-time 推荐分开，便于核对原始事实与派生结果。
 
 ## 环境与使用
 
-需要 Python 3.11 或更高版本，无第三方依赖。运行 `python3 -m unittest discover -s tests -v` 执行测试；运行 `python3 -m learning_path_outcomes.report` 查看合成数据摘要。所有记录均为本地合成数据，不包含个人信息。
-也可使用 Docker 运行：`docker build -t learning-path-outcomes .`，再执行 `docker run --rm learning-path-outcomes`。容器内运行测试可执行 `docker run --rm --entrypoint python3 learning-path-outcomes -m unittest discover -s tests -v`。
+需要 Python 3.11 或更高版本，无第三方依赖。
 
-## 现有行为
+* 执行测试：`python3 -m unittest discover -s tests -v`
+* 旧式聚合摘要：`python3 -m learning_path_outcomes.report`
+* 路径分析与推荐演示：`python3 -m learning_path_outcomes.path_report`
 
-履历状态界定风险集合及竞争结局；路径证据解释按时间和人群可比；推荐资格与证据适用域共同决定可推荐内容。
+在隔离解释器（`python3 -I`）下运行时，`tests/bootstrap.py` 会自动把项目根加入
+模块搜索路径；直接以模块方式运行报告时需保证项目根在 `sys.path` 中，例如
+`PYTHONPATH=. python3 -m learning_path_outcomes.path_report`。
 
-当前摘要只反映样例记录的基础汇总，不用于形成个体资格或运营承诺。SQLite 数据库在调用时创建于临时目录，原始 CSV 保持不变。
+也可使用 Docker 运行：`docker build -t learning-path-outcomes .`，再执行
+`docker run --rm learning-path-outcomes`（默认运行旧式摘要）。容器内运行测试：
+`docker run --rm --entrypoint python3 learning-path-outcomes -m unittest discover -s tests -v`。
+
+所有记录均为本地合成数据，不包含个人信息。SQLite 数据库在调用时创建于临时目录，
+原始 CSV 保持不变。
+
+## 数据
+
+* `data/courses.csv`：实际开课信息（开课/结课时间、先修成果要求）
+* `data/enrollments.csv`：学员逐课注册的进入、离开时间与离开状态
+* `data/achievements.csv`：已确认成果及确认日期
+* `data/observations.csv`：旧式周期/社区聚合记录，仅保留兼容
+
+## 分析口径
+
+1. **明确起点与相同观察期限**：以起点课程实际进入日为各人第 0 天，统一在
+   `horizon_days`（默认 180 天）观察窗内比较；晚于招生窗口进入或观察窗不完整者
+   不进入分母，在覆盖率中单独报告，不计为失败。
+2. **竞争结局与删失**：只取首事件，结局为「目标成果 / 转入其他路径 / 中断」。
+   观察结束仍在学、因健康或时间安排退出、窗外事件均按删失处理；目标成果以成果
+   确认日为准，而非课程注册状态。
+3. **估计与不确定性**：Aalen–Johansen 估计各结局累积发生函数（处理同时间点事件），
+   Kaplan–Meier/Greenwood 估计生存曲线，对学员重采样的自助法给出 95% 区间。
+4. **时间顺序纪律**：注册区间重叠判定为并行修读，不虚构课程先后，也不生成顺序
+   路径证据；进入后续课程前的等待时间单独统计，但自后续课程实际进入日起算事件，
+   等待不记入后续课程的成功经验。
+5. **关联而非因果**：能进入后续课程的学员本就是坚持下来的子人群，路径差异只作
+   关联证据呈现，任何输出都不得解释为课程本身造成了收益。
+
+## 进阶推荐规则
+
+* 先修资格只按**推荐日已确认**的成果判断，课程注册或「完成课程」状态不授予资格。
+* 推荐只使用推荐日 `as_of` 已经可得的经历；推荐日之后的进入、离开与成果确认
+  经点-in-time 截断后不可见，后续记录不会改写过去的推荐理由。
+* 证据须同时通过队列规模/完整随访门槛、人群可比性（学员属于证据队列覆盖范围）
+  与时间顺序可区分性；任一项不满足即显示「证据不足」，不用全体平均补齐。
+* 每次推荐生成只追加的不可变快照，记录观察窗口、可选课程、竞争结局与删失定义、
+* 适用理由及当时记录的 SHA-256 指纹，供教务事后审计。
+
+当前摘要只反映样例记录的演示结果，不用于形成个体资格或运营承诺。

@@ -1,0 +1,5 @@
+course_id,name,level,offer_start,offer_end,prereq_achievement
+P100,摄影入门,入门,2025-02-10,2025-07-05,
+P200,手机剪辑入门,入门,2025-04-01,,
+X100,书法入门,入门,2025-02-10,,
+C300,社区影像进阶,进阶,2025-09-01,,WORK
